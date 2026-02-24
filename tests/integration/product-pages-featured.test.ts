@@ -17,6 +17,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// Mock image scraper so tests don't call SerpAPI
+vi.mock("@/lib/scraper/product-image", () => ({
+  scrapeProductImage: vi.fn().mockResolvedValue("https://example.com/test-image.jpg"),
+}));
+
 import { generateProductPageData } from "@/lib/generators/product-page";
 
 // ─── Product Page Generation (from featured search fallback) ──────────────────

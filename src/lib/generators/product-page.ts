@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { featuredSearches } from "@/lib/featured-searches";
+import { scrapeProductImage } from "@/lib/scraper/product-image";
 import type { ProductPageData, CitationRef, BrandInfo } from "@/lib/types";
 
 /**
@@ -205,20 +206,64 @@ export async function generateProductPageData(
  * Build a basic ProductPageData from a featured search entry when the product
  * is not yet in the database.
  */
-function buildFromFeaturedSearch(slug: string): ProductPageData | null {
+async function buildFromFeaturedSearch(slug: string): Promise<ProductPageData | null> {
   for (const fs of featuredSearches) {
     const entry = fs.data.top10.find((item) => item.product.slug === slug);
     if (!entry) continue;
 
     const p = entry.product;
+
+    // Scrape an image if the static data doesn't have one
+    let images: string[] = p.imageUrl ? [p.imageUrl] : [];
+    if (images.length === 0) {
+      try {
+        const scraped = await scrapeProductImage(p.brand, p.model);
+        if (scraped) images = [scraped];
+      } catch {
+        // Image scrape failed — continue without image
+      }
+    }
+
+    // Derive TikTok availability from platformCoverage
+    const tiktokCoverage = entry.platformCoverage.TikTok ?? "none";
+    const tiktokAvailable = tiktokCoverage !== "none";
+
+    // Build richer Reddit thread clusters grouped by subreddit
+    const subredditGroups = new Map<string, { url: string; title: string; quote: string }[]>();
+    for (const ev of entry.redditEvidence) {
+      const sub = ev.subreddit ?? inferSubreddit(ev.url);
+      const list = subredditGroups.get(sub) ?? [];
+      list.push({ url: ev.url, title: `${sub} discussion`, quote: ev.quote });
+      subredditGroups.set(sub, list);
+    }
+    const threadClusters = [...subredditGroups.entries()].map(([theme, threads]) => ({
+      theme,
+      threads: threads.slice(0, 5),
+    }));
+
+    // Build Trustpilot section from pre-seeded data or platformCoverage flag
+    const tp = entry.trustpilotData;
+    const trustpilot = tp
+      ? {
+          available: true,
+          rating: tp.rating,
+          reviewCount: tp.reviewCount,
+          scope: "brand" as const,
+          capturedAt: new Date().toISOString(),
+          url: tp.url,
+        }
+      : {
+          available: (entry.platformCoverage.Trustpilot ?? "none") !== "none",
+        };
+
     return {
       product: {
         brand: p.brand,
         model: p.model,
         slug: p.slug,
         category: p.category,
-        images: p.imageUrl ? [p.imageUrl] : [],
-        specs: {},
+        images,
+        specs: entry.specs ?? {},
         score: entry.scores.overall,
         bestForTags: entry.fitCriteria.slice(0, 3),
         brandUrl: p.brandUrl,
@@ -237,37 +282,37 @@ function buildFromFeaturedSearch(slug: string): ProductPageData | null {
           mentionCount: 1,
         })),
         pros: entry.redditEvidence.map((e) => e.quote),
-        cons: [],
+        cons: entry.cons,
       },
-      tiktok: { available: false, themes: [], topAngles: [], sourcePosts: [] },
+      tiktok: {
+        available: tiktokAvailable,
+        themes: tiktokAvailable ? entry.fitCriteria.slice(0, 3) : [],
+        topAngles: [],
+        sourcePosts: [],
+      },
       reddit: {
         available: entry.redditEvidence.length > 0,
-        threadClusters: entry.redditEvidence.length > 0
-          ? [{
-              theme: "user opinions",
-              threads: entry.redditEvidence.map((e) => ({
-                url: e.url,
-                title: "Reddit thread",
-                quote: e.quote,
-              })),
-            }]
-          : [],
+        threadClusters: threadClusters.length > 0 ? threadClusters : [],
         commonComplaints: entry.cons,
         defendedBenefits: entry.pros,
       },
-      trustpilot: {
-        available: (entry.platformCoverage.Trustpilot ?? "none") !== "none",
-      },
+      trustpilot,
       sources: entry.redditEvidence.map((e, i) => ({
         sourceId: `featured-${i}`,
         url: e.url,
         platform: "reddit" as const,
-        title: "Reddit discussion",
+        title: e.subreddit ? `${e.subreddit} discussion` : "Reddit discussion",
         capturedAt: new Date().toISOString(),
       })),
     };
   }
   return null;
+}
+
+/** Extract subreddit name from a Reddit URL */
+function inferSubreddit(url: string): string {
+  const match = url.match(/reddit\.com\/r\/([^/]+)/);
+  return match ? `r/${match[1]}` : "Reddit";
 }
 
 function buildRedditClusters(

@@ -183,12 +183,18 @@ export interface ResultsPageData {
     pros: string[];
     cons: string[];
     fitCriteria: string[];
-    redditEvidence: { quote: string; url: string }[];
+    redditEvidence: { quote: string; url: string; subreddit?: string }[];
     confidenceLevel: "high" | "medium" | "low";
     platformCoverage: Record<string, "high" | "medium" | "low" | "none">;
     sourceCount: number;
     scores: ScoringDimensions;
     sources: CitationRef[];
+    specs?: Record<string, string>;
+    trustpilotData?: {
+      rating: number;
+      reviewCount: number;
+      url: string;
+    };
   }[];
 }
 
