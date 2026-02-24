@@ -15,14 +15,19 @@ for i in $(seq 1 30); do
 done
 
 echo "[entrypoint] Refreshing featured searches in background…"
-node scripts/refresh-featured-searches.js
+node scripts/refresh-featured-searches.js &
+REFRESH_PID=$!
+
+# Wait for refresh but don't kill the server if it fails — the static
+# featured-search data is still usable; live pipeline results will
+# replace it once a user triggers a search.
+wait $REFRESH_PID
 REFRESH_EXIT=$?
 
 if [ "$REFRESH_EXIT" -ne 0 ]; then
-  echo "[entrypoint] ✗ Featured search refresh failed (exit $REFRESH_EXIT). Stopping server."
-  kill $SERVER_PID 2>/dev/null
-  exit 1
+  echo "[entrypoint] ⚠ Featured search refresh failed (exit $REFRESH_EXIT). Server continues with stale data."
+else
+  echo "[entrypoint] ✓ Featured searches up to date."
 fi
 
-echo "[entrypoint] ✓ Featured searches up to date."
 wait $SERVER_PID

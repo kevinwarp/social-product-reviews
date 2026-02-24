@@ -69,6 +69,9 @@ COPY --from=builder /app/node_modules/postgres-bytea ./node_modules/postgres-byt
 COPY --from=builder /app/node_modules/postgres-date ./node_modules/postgres-date
 COPY --from=builder /app/node_modules/postgres-interval ./node_modules/postgres-interval
 
+# Copy additional runtime deps needed by the refresh script / pipeline
+COPY --from=builder /app/node_modules/@google ./node_modules/@google
+
 # Copy deploy-time refresh script and entrypoint
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/refresh-featured-searches.js ./scripts/
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./scripts/
