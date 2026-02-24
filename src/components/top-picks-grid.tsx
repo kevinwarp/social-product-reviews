@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProductImage } from "@/components/product-image";
 import { Package, ArrowRight } from "lucide-react";
 import type { ResultsPageData } from "@/lib/types";
 
@@ -41,7 +41,7 @@ export function TopPicksGrid({ picks }: TopPicksGridProps) {
               {/* Product image */}
               <div className="mx-auto h-32 w-32 rounded-lg bg-muted flex items-center justify-center overflow-hidden mb-4">
                 {pick.product.imageUrl ? (
-                  <Image
+                  <ProductImage
                     src={pick.product.imageUrl}
                     alt={`${pick.product.brand} ${pick.product.model}`}
                     width={128}

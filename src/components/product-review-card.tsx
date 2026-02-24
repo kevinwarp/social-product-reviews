@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfidenceBadge } from "@/components/confidence-badge";
+import { ProductImage } from "@/components/product-image";
 import {
   Package,
   ShoppingCart,
@@ -35,7 +35,7 @@ export function ProductReviewCard({ item, queryId }: ProductReviewCardProps) {
           {/* Product image */}
           <div className="h-24 w-24 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
             {item.product.imageUrl ? (
-              <Image
+              <ProductImage
                 src={item.product.imageUrl}
                 alt={`${item.product.brand} ${item.product.model}`}
                 width={96}

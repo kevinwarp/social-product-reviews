@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PlatformSection } from "@/components/platform-section";
 import { SourcesDrawer } from "@/components/sources-drawer";
 import { ConfidenceBadge } from "@/components/confidence-badge";
+import { ProductImage } from "@/components/product-image";
 import { generateProductPageData } from "@/lib/generators/product-page";
 import { ComplianceNotice } from "@/components/compliance-notice";
 import { prisma } from "@/lib/db";
@@ -105,7 +105,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {/* Product image */}
           <div className="h-32 w-32 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
             {product.images.length > 0 ? (
-              <Image
+              <ProductImage
                 src={product.images[0]}
                 alt={`${product.brand} ${product.model}`}
                 width={128}
@@ -186,7 +186,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="flex gap-2 mt-4 ml-[152px]">
             {product.images.slice(1, 5).map((img, i) => (
               <div key={i} className="h-16 w-16 rounded-md bg-muted overflow-hidden shrink-0">
-                <Image
+                <ProductImage
                   src={img}
                   alt={`${product.brand} ${product.model} image ${i + 2}`}
                   width={64}
