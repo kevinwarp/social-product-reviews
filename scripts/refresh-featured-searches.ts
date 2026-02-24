@@ -7,8 +7,10 @@
  *
  * Usage:
  *   npx tsx scripts/refresh-featured-searches.ts
+ *
+ * For local development (loads .env automatically):
+ *   node -r dotenv/config node_modules/.bin/tsx scripts/refresh-featured-searches.ts
  */
-import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { featuredSearches } from "../src/lib/featured-searches";

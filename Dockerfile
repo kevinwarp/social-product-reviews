@@ -19,6 +19,19 @@ RUN npx prisma generate
 # Build Next.js (standalone output)
 RUN npm run build
 
+# Bundle the refresh-featured-searches script into a single JS file.
+# --packages=external keeps npm deps as require() calls (resolved from
+# the standalone node_modules at runtime), while --tsconfig resolves the
+# @/* path aliases used throughout src/.
+RUN npx esbuild scripts/refresh-featured-searches.ts \
+      --bundle \
+      --platform=node \
+      --target=node22 \
+      --format=cjs \
+      --tsconfig=tsconfig.json \
+      --packages=external \
+      --outfile=scripts/refresh-featured-searches.js
+
 # ── Stage 3: Production runner ─────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -42,8 +55,13 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 
+# Copy deploy-time refresh script and entrypoint
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/refresh-featured-searches.js ./scripts/
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./scripts/
+RUN chmod +x scripts/docker-entrypoint.sh
+
 USER nextjs
 
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+CMD ["sh", "scripts/docker-entrypoint.sh"]
