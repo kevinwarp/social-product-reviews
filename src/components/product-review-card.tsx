@@ -123,9 +123,9 @@ export function ProductReviewCard({ item, queryId }: ProductReviewCardProps) {
                 {item.pros.map((pro, i) => (
                   <li
                     key={i}
-                    className="text-sm text-muted-foreground flex items-start gap-1.5"
+                    className="text-sm text-muted-foreground flex items-center gap-1.5"
                   >
-                    <span className="text-green-500 mt-1">+</span>
+                    <span className="text-green-500 leading-none">+</span>
                     {pro}
                   </li>
                 ))}
@@ -142,9 +142,9 @@ export function ProductReviewCard({ item, queryId }: ProductReviewCardProps) {
                 {item.cons.map((con, i) => (
                   <li
                     key={i}
-                    className="text-sm text-muted-foreground flex items-start gap-1.5"
+                    className="text-sm text-muted-foreground flex items-center gap-1.5"
                   >
-                    <span className="text-red-500 mt-1">−</span>
+                    <span className="text-red-500 leading-none">−</span>
                     {con}
                   </li>
                 ))}
