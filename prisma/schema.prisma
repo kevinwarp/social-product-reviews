@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth Models (NextAuth) ───────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  lastLoginAt   DateTime?
+
+  accounts   Account[]
+  sessions   Session[]
+  queries    Query[]
+  searchLogs SearchLog[]
+  eventLogs  EventLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Domain Models ───────────────────────────────────────────────────────
+
+model Brand {
+  id                   String   @id @default(cuid())
+  domain               String   @unique
+  countryCode          String?
+  icon                 String?
+  platform             String?
+  merchantName         String?
+  tld1                 String?
+  description          String?  @db.Text
+  estimatedSalesYearly Float?
+  employeeCount        Int?
+  updatedAt            DateTime @updatedAt
+
+  products Product[]
+
+  @@index([merchantName])
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  brand         String
+  model         String
+  variant       String?
+  category      String
+  canonicalSlug String   @unique
+  images        Json     @default("[]")
+  specs         Json     @default("{}")
+  brandUrl      String?
+  price         Float?
+  buyUrl        String?
+  brandId       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  brandRef           Brand?             @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  evidence           Evidence[]
+  productIngredients ProductIngredient[]
+
+  @@index([brand, model])
+  @@index([brandId])
+}
+
+enum Platform {
+  REDDIT
+  TIKTOK
+  TRUSTPILOT
+  WEB
+  AMAZON
+  SEPHORA
+  YOUTUBE
+  EWG
+}
+
+model Source {
+  id              String    @id @default(cuid())
+  platform        Platform
+  url             String
+  title           String?
+  authorHandle    String?
+  sourceCreatedAt DateTime?
+  capturedAt      DateTime  @default(now())
+  snippet         String?   @db.Text
+  complianceNotes String?
+
+  evidence Evidence[]
+
+  @@index([platform])
+  @@index([url])
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+model Evidence {
+  id             String    @id @default(cuid())
+  productId      String
+  queryId        String
+  sourceId       String
+  sentiment      Sentiment
+  themes         Json      @default("[]")
+  claimTags      Json      @default("[]")
+  quote          String?   @db.Text
+  quoteCharCount Int?
+  createdAt      DateTime  @default(now())
+  
+  // Skincare-specific sentiment dimensions (0-1 scale)
+  efficacy          Float?   @default(0)
+  irritation        Float?   @default(0)
+  texture           Float?   @default(0)
+  value             Float?   @default(0)
+  repurchaseIntent  Float?   @default(0)
+  skinType          String?  // dry, oily, combination, sensitive, normal
+  adverseEvents     Json     @default("[]")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  query   Query   @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  source  Source  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([queryId])
+  @@index([sourceId])
+}
+
+enum QueryStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Query {
+  id           String      @id @default(cuid())
+  rawQuery     String
+  parsedIntent Json        @default("{}")
+  status       QueryStatus @default(PENDING)
+  userId       String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  evidence       Evidence[]
+  rankingResults RankingResult[]
+  searchLogs     SearchLog[]
+
+  @@index([userId])
+  @@index([rawQuery])
+}
+
+model RankingResult {
+  id             String   @id @default(cuid())
+  queryId        String
+  candidateCount Int
+  top10          Json
+  createdAt      DateTime @default(now())
+
+  query Query @relation(fields: [queryId], references: [id], onDelete: Cascade)
+
+  @@index([queryId])
+}
+
+// ─── Logging Models ───────────────────────────────────────────────────────────
+
+model SearchLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  queryId      String?
+  rawQuery     String
+  parsedIntent Json     @default("{}")
+  resultCount  Int?
+  durationMs   Int?
+  status       String
+  createdAt    DateTime @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  query Query? @relation(fields: [queryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum EventType {
+  SEARCH
+  LOGIN
+  LOGOUT
+  PAGE_VIEW
+  ERROR
+  ADMIN_ACTION
+}
+
+model EventLog {
+  id        String    @id @default(cuid())
+  userId    String?
+  eventType EventType
+  metadata  Json      @default("{}")
+  createdAt DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+// ─── Skincare Models ──────────────────────────────────────────────────────────
+
+enum HazardLevel {
+  LOW
+  MODERATE
+  HIGH
+}
+
+model Ingredient {
+  id          String      @id @default(cuid())
+  name        String      // Common name
+  inciName    String      @unique // INCI standardized name
+  ewgScore    Int?        // 1-10 from EWG Skin Deep
+  hazardLevel HazardLevel @default(LOW)
+  concerns    Json        @default("[]")
+  dataGaps    Json        @default("[]")
+  updatedAt   DateTime    @updatedAt
+  
+  productIngredients ProductIngredient[]
+  
+  @@index([inciName])
+  @@index([ewgScore])
+}
+
+model ProductIngredient {
+  id            String  @id @default(cuid())
+  productId     String
+  ingredientId  String
+  position      Int     // Position in ingredient list (1-based)
+  concentration String? // "high", "medium", "low" or percentage if known
+  
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, ingredientId])
+  @@index([productId])
+  @@index([ingredientId])
+}
