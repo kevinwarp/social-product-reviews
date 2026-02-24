@@ -122,6 +122,27 @@ export async function generateProductPageData(
     buyUrl?: string | null;
   });
 
+  // Enrich images: if DB has none, try featured search data, then scrape
+  let productImages = (product.images as string[]) ?? [];
+  if (productImages.length === 0) {
+    // Check featured search data for a known imageUrl
+    for (const fs of featuredSearches) {
+      const entry = fs.data.top10.find((item) => item.product.slug === product.canonicalSlug);
+      if (entry?.product.imageUrl) {
+        productImages = [entry.product.imageUrl];
+        break;
+      }
+    }
+  }
+  if (productImages.length === 0) {
+    try {
+      const scraped = await scrapeProductImage(product.brand, product.model);
+      if (scraped) productImages = [scraped];
+    } catch {
+      // scrape failed — continue without image
+    }
+  }
+
   // Build brand info from the related Brand record
   const brandRef = product.brandRef;
   const brandInfo: BrandInfo | undefined =
@@ -144,7 +165,7 @@ export async function generateProductPageData(
       model: product.model,
       slug: product.canonicalSlug,
       category: product.category,
-      images: (product.images as string[]) ?? [],
+      images: productImages,
       specs: (product.specs as Record<string, string>) ?? {},
       score,
       bestForTags,
